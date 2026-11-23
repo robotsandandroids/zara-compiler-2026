@@ -1,17 +1,37 @@
 # zara
 
-A Rust project.
+A Rust project implementing a Zara language compiler.
 
-## Git Hooks
+## Setup
 
-This project uses a pre-commit hook that runs `cargo fmt` and `cargo clippy` on every commit to ensure code quality.
+### Prerequisites
 
-The hook is located at `.git/hooks/pre-commit` and performs the following checks:
+- [Rust](https://www.rust-lang.org/) (version 2024 edition or newer)
+- Git
 
-1. **`cargo fmt --check`** - Verifies the code is properly formatted
-2. **`cargo clippy -- -D warnings`** - Runs the linter with all warnings treated as errors
+### Building
 
-If either check fails, the commit is aborted. To commit after making changes, run `cargo fmt` first, then `git add` the formatted files, then `git commit`.
+```bash
+cargo build
+```
+
+### Running the compiler
+
+The compiler can process `.zara` files. Example files are available in the `examples/` directory:
+
+```bash
+cargo run -- example/hello_world.zara
+```
+
+### Running tests
+
+```bash
+cargo test
+```
+
+## Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
