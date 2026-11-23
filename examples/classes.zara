@@ -1,0 +1,39 @@
+interface Animal {
+    fn void breathe();
+    fn void move();
+}
+
+class Dog implements Animal
+{
+    private string name;
+
+    fn Self constructor(string name) {
+        self.name = name;
+    }
+
+    fn string get_name() {
+        return self.name;
+    }
+
+    fn void bark() {
+        writeln("Wooof!");
+    }
+
+    #[override]
+    fn void move() {
+        writeln("dog is moving");
+    }
+
+    #[override]
+    fn void breath() {
+        writeln("dog is breathing");
+    }
+}
+
+fn void main() {
+    Animal *animal = new Dog("Samo");
+    animal.move();
+    animal.breath();
+    Dog *dog = dynamic_cast(animal);
+    writeln("Dog is named: {}", dog.get_name());
+}

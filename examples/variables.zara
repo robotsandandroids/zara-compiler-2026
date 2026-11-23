@@ -1,0 +1,5 @@
+fn void main() {
+    int x = 69;
+    int y = 420;
+    writeln("{}", x + y);
+}
