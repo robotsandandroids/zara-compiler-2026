@@ -1,15 +1,14 @@
-interface Animal {
+archetype Animal {
     fn void breathe();
     fn void move();
 }
 
-class Dog implements Animal
+class Dog
 {
-    private string name;
+    string name;
+}
 
-    fn Self constructor(string name) {
-        self.name = name;
-    }
+impl Dog {
 
     fn string get_name() {
         return self.name;
@@ -18,17 +17,26 @@ class Dog implements Animal
     fn void bark() {
         writeln("Wooof!");
     }
+}
 
-    #[override]
+impl Animal for Dog {
     fn void move() {
         writeln("dog is moving");
     }
 
-    #[override]
     fn void breath() {
         writeln("dog is breathing");
     }
 }
+
+class Chiwawa extends Dog {}
+
+impl Chiwawa {
+    fn void assault() {
+        writeln("Chiwawa asaults a person because they have anger issues");
+    }
+}
+
 
 fn void main() {
     Animal *animal = new Dog("Samo");
