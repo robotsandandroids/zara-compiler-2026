@@ -41,9 +41,14 @@ impl<T: Iterator<Item = char>> Lexer<T> {
         }
         let c = self.advance();
         match c {
+            ',' => self.make_token(TokenKind::Comma),
+            '&' => self.make_token(TokenKind::Amp),
+            '.' => self.make_token(TokenKind::Dot),
             ';' => self.make_token(TokenKind::SemiColon),
             '(' => self.make_token(TokenKind::LParen),
             ')' => self.make_token(TokenKind::RParen),
+            '[' => self.make_token(TokenKind::LBrack),
+            ']' => self.make_token(TokenKind::RBrack),
             '{' => self.make_token(TokenKind::LBrace),
             '}' => self.make_token(TokenKind::RBrace),
             '+' => self.make_token(TokenKind::Plus),
@@ -52,6 +57,8 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             '/' => self.make_token(TokenKind::Slash),
             '!' => self.check('=', TokenKind::Bang, TokenKind::BangEqual),
             '=' => self.check('=', TokenKind::Equal, TokenKind::EqualEqual),
+            '>' => self.check('=', TokenKind::Greater, TokenKind::GreaterEqual),
+            '<' => self.check('=', TokenKind::Less, TokenKind::LessEqual),
             _ => self.make_token(TokenKind::Illegal(c)),
         }
     }
@@ -103,7 +110,7 @@ mod tests {
     #[test]
     fn single_punctuations() {
         use TokenKind::*;
-        let test_str = ";()\n{}=!+/*-";
+        let test_str = ";()\n{}=!+/*-.><&,[]";
         let mut lexer = Lexer::new(test_str.chars());
         assert_eq!(
             Token {
@@ -182,11 +189,60 @@ mod tests {
             },
             lexer.next_token()
         );
+        assert_eq!(
+            Token {
+                kind: Dot,
+                pos: Location { col: 9, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Greater,
+                pos: Location { col: 10, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Less,
+                pos: Location { col: 11, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Amp,
+                pos: Location { col: 12, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Comma,
+                pos: Location { col: 13, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: LBrack,
+                pos: Location { col: 14, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: RBrack,
+                pos: Location { col: 15, row: 2 }
+            },
+            lexer.next_token()
+        );
     }
     #[test]
     fn compound_punctuations() {
         use TokenKind::*;
-        let test_str = "==\n!=";
+        let test_str = "==\n!=\n>=\n<=";
         let mut lexer = Lexer::new(test_str.chars());
         assert_eq!(
             Token {
@@ -199,6 +255,20 @@ mod tests {
             Token {
                 kind: BangEqual,
                 pos: Location { col: 1, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: GreaterEqual,
+                pos: Location { col: 1, row: 3 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: LessEqual,
+                pos: Location { col: 1, row: 4 }
             },
             lexer.next_token()
         );

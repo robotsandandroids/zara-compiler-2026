@@ -1,6 +1,9 @@
 #[derive(PartialEq, Debug)]
 pub enum TokenKind {
+    Amp,
     SemiColon,
+    LBrack,
+    RBrack,
     LParen,
     RParen,
     LBrace,
@@ -13,6 +16,12 @@ pub enum TokenKind {
     Star,
     Slash,
     Minus,
+    Dot,
+    Comma,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
     Eof,
     Illegal(char),
 }
