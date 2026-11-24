@@ -77,6 +77,33 @@ impl<T: Iterator<Item = char>> Lexer<T> {
                 self.col += len;
                 token
             }
+            '0'..='9' => {
+                let mut num = String::new();
+                num.push(c);
+                while let Some(x) = self.source.peek()
+                    && x.is_numeric()
+                {
+                    num.push(*x);
+                    self.advance();
+                }
+                if let Some(x) = self.source.peek()
+                    && *x == '.'
+                {
+                    num.push(*x);
+                    self.advance();
+                    while let Some(x) = self.source.peek()
+                        && x.is_numeric()
+                    {
+                        num.push(*x);
+                        self.advance();
+                    }
+                }
+                let len = num.len() as u32 - 1;
+                self.col -= len;
+                let token = self.make_token(TokenKind::Number(num));
+                self.col += len;
+                token
+            }
             _ => self.make_token(TokenKind::Illegal(c)),
         }
     }
@@ -301,6 +328,27 @@ mod tests {
             Token {
                 kind: String("hello world".to_string()),
                 pos: Location { col: 1, row: 1 }
+            },
+            lexer.next_token()
+        );
+    }
+
+    #[test]
+    fn numbers() {
+        use TokenKind::*;
+        let test_str = "69.420\n73";
+        let mut lexer = Lexer::new(test_str.chars());
+        assert_eq!(
+            Token {
+                kind: Number("69.420".to_string()),
+                pos: Location { col: 1, row: 1 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Number("73".to_string()),
+                pos: Location { col: 1, row: 2 }
             },
             lexer.next_token()
         );
