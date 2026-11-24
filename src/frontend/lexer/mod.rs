@@ -59,6 +59,24 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             '=' => self.check('=', TokenKind::Equal, TokenKind::EqualEqual),
             '>' => self.check('=', TokenKind::Greater, TokenKind::GreaterEqual),
             '<' => self.check('=', TokenKind::Less, TokenKind::LessEqual),
+            '"' => {
+                let mut str = String::new();
+                while let Some(x) = self.source.peek()
+                    && *x != '"'
+                {
+                    str.push(*x);
+                    self.advance();
+                }
+                if self.is_at_end() {
+                    todo!("Use miette to report unclosed string delimeter");
+                }
+                self.advance();
+                let len = str.len() as u32 + 1;
+                self.col -= len;
+                let token = self.make_token(TokenKind::String(str));
+                self.col += len;
+                token
+            }
             _ => self.make_token(TokenKind::Illegal(c)),
         }
     }
@@ -269,6 +287,20 @@ mod tests {
             Token {
                 kind: LessEqual,
                 pos: Location { col: 1, row: 4 }
+            },
+            lexer.next_token()
+        );
+    }
+
+    #[test]
+    fn strings() {
+        use TokenKind::*;
+        let test_str = "\"hello world\"";
+        let mut lexer = Lexer::new(test_str.chars());
+        assert_eq!(
+            Token {
+                kind: String("hello world".to_string()),
+                pos: Location { col: 1, row: 1 }
             },
             lexer.next_token()
         );

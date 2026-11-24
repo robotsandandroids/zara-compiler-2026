@@ -22,6 +22,7 @@ pub enum TokenKind {
     Greater,
     LessEqual,
     GreaterEqual,
+    String(String),
     Eof,
     Illegal(char),
 }
