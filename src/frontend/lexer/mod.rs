@@ -49,10 +49,10 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             "new" => self.make_token(TokenKind::New),
             "void" => self.make_token(TokenKind::VoidT),
             "while" => self.make_token(TokenKind::While),
-            _ =>  self.make_token(TokenKind::Ident(ident)),
+            _ => self.make_token(TokenKind::Ident(ident)),
         };
         self.col += len;
-        return token;
+        token
     }
 
     fn next_token(&mut self) -> Token {
