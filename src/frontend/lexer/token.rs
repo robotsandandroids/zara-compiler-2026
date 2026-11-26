@@ -36,6 +36,7 @@ pub enum TokenKind {
     Fn,
     While,
     Archetype,
+    Return,
     Eof,
     Illegal(char),
 }
