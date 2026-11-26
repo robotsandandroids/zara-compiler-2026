@@ -47,6 +47,7 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             "int" => self.make_token(TokenKind::IntT),
             "impl" => self.make_token(TokenKind::Impl),
             "new" => self.make_token(TokenKind::New),
+            "return" => self.make_token(TokenKind::Return),
             "void" => self.make_token(TokenKind::VoidT),
             "while" => self.make_token(TokenKind::While),
             _ => self.make_token(TokenKind::Ident(ident)),
@@ -421,7 +422,8 @@ mod tests {
     #[test]
     fn keywords() {
         use TokenKind::*;
-        let test_str = "class\nint\narchetype\nfloat\nfn\nvoid\nimpl\nfor\nwhile\nextends\nnew\n";
+        let test_str =
+            "class\nint\narchetype\nfloat\nfn\nvoid\nimpl\nfor\nwhile\nextends\nnew\nreturn\n";
         let mut lexer = Lexer::new(test_str.chars());
         assert_eq!(
             Token {
@@ -502,6 +504,14 @@ mod tests {
             Token {
                 kind: New,
                 pos: Location { col: 1, row: 11 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: Return,
+                pos: Location { col: 1, row: 12 }
             },
             lexer.next_token()
         );
