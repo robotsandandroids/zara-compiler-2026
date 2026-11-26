@@ -1,0 +1,44 @@
+program = { declaration } ;
+
+declaration = function | archetype | class | impl ;
+
+# A function has a body in { }, or is a prototype ending in ;
+function = "fn" type identifier "(" [ parameter_list ] ")" function_body ;
+function_body = ";" | "{" { statement } "}" ;
+parameter_list = parameter { "," parameter } ;
+parameter = type identifier ;
+
+# Types: "int", "Dog", and pointer types such as "Dog *"
+type = base_type [ "*" ] ;
+base_type = "void" | "int" | "string" | identifier ;
+
+# Archetypes declare function prototypes
+archetype = "archetype" identifier "{" { function } "}" ;
+
+# Classes hold fields and may extend another class
+class = "class" identifier [ "extends" identifier ] "{" { variable_declaration } "}" ;
+
+# impl blocks add functions to a class, optionally for an archetype
+impl = "impl" identifier [ "for" identifier ] "{" { function } "}" ;
+
+# Statements
+statement = variable_declaration | "return" expression ";" | expression ";" ;
+variable_declaration = type identifier [ "=" expression ] ";" ;
+
+# Expressions: literals, calls, field access, arithmetic, new, dynamic_cast
+expression = add_expression ;
+add_expression = postfix_expression { ( "+" | "-" ) postfix_expression } ;
+postfix_expression = primary { "." identifier | "(" [ argument_list ] ")" } ;
+primary = identifier | integer | string | "self"
+        | "new" identifier "(" [ argument_list ] ")"
+        | "dynamic_cast" "(" expression ")"
+        | "(" expression ")" ;
+argument_list = expression { "," expression } ;
+
+# Lexical tokens 
+identifier = letter { letter | digit | "_" } ;
+integer = digit { digit } ;
+string = '"' { string_character } '"' ;
+string_character = letter | digit | " " | "!" | "{" | "}" | ":" | "." | "," ;
+letter = "a" | "b" | "c" | ... | "z" | "A" | "B" | "C" | ... | "Z" ;
+digit = "0" | "1" | "2" | ... | "9" ;

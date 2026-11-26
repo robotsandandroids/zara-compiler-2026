@@ -1,0 +1,82 @@
+<program> ::= <declaration_list>
+
+<declaration_list> ::= <declaration>
+                     | <declaration> <declaration_list>
+
+<declaration> ::= <function>
+                | <archetype>
+                | <class>
+                | <impl>
+
+# Functions: a body in { }, or a prototype ending in ;
+<function> ::= "fn" <type> <identifier> "(" <parameter_list_opt> ")" <function_body>
+<function_body> ::= ";" | "{" <statement_list_opt> "}"
+
+<parameter_list_opt> ::= "" | <parameter_list>
+<parameter_list> ::= <parameter>
+                   | <parameter> "," <parameter_list>
+<parameter> ::= <type> <identifier>
+
+# Types: "int", "Dog", and pointer types such as "Dog *"
+<type> ::= <base_type> | <base_type> "*"
+<base_type> ::= "void" | "int" | "string" | <identifier>
+
+# Archetypes declare function prototypes 
+<archetype> ::= "archetype" <identifier> "{" <function_list> "}"
+<function_list> ::= <function>
+                  | <function> <function_list>
+
+# Classes hold fields and may extend another class
+<class> ::= "class" <identifier> <extends_opt> "{" <field_list_opt> "}"
+<extends_opt> ::= "" | "extends" <identifier>
+<field_list_opt> ::= "" | <field_list>
+<field_list> ::= <variable_declaration>
+               | <variable_declaration> <field_list>
+
+# impl blocks add functions to a class, optionally for an archetype
+<impl> ::= "impl" <identifier> <for_opt> "{" <function_list> "}"
+<for_opt> ::= "" | "for" <identifier>
+
+# Statements
+<statement_list_opt> ::= "" | <statement_list>
+<statement_list> ::= <statement>
+                   | <statement> <statement_list>
+<statement> ::= <variable_declaration>
+              | <return_statement>
+              | <expression> ";"
+
+<variable_declaration> ::= <type> <identifier> <initializer_opt> ";"
+<initializer_opt> ::= "" | "=" <expression>
+<return_statement> ::= "return" <expression> ";"
+
+# Expressions: literals, calls, field access, arithmetic, new, dynamic_cast
+<expression> ::= <add_expression>
+<add_expression> ::= <postfix_expression>
+                   | <postfix_expression> <add_operator> <add_expression>
+<add_operator> ::= "+" | "-"
+<postfix_expression> ::= <primary>
+                       | <postfix_expression> "." <identifier>
+                       | <postfix_expression> "(" <argument_list_opt> ")"
+<primary> ::= <identifier>
+            | <integer>
+            | <string>
+            | "self"
+            | "new" <identifier> "(" <argument_list_opt> ")"
+            | "dynamic_cast" "(" <expression> ")"
+            | "(" <expression> ")"
+
+<argument_list_opt> ::= "" | <argument_list>
+<argument_list> ::= <expression>
+                  | <expression> "," <argument_list>
+
+# Lexical tokens 
+<identifier> ::= <letter> <identifier_tail>
+<identifier_tail> ::= "" | <letter> <identifier_tail>
+                    | <digit> <identifier_tail> | "_" <identifier_tail>
+<integer> ::= <digit> <integer_tail>
+<integer_tail> ::= "" | <digit> <integer_tail>
+<string> ::= '"' <string_tail> '"'
+<string_tail> ::= "" | <string_character> <string_tail>
+<string_character> ::= <letter> | <digit> | " " | "!" | "{" | "}" | ":" | "." | ","
+<letter> ::= "a" | "b" | "c" | ... | "z" | "A" | "B" | "C" | ... | "Z"
+<digit> ::= "0" | "1" | "2" | ... | "9"
