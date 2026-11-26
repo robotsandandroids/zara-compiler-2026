@@ -1,21 +1,47 @@
 mod token;
 use token::*;
 
+use miette::{Diagnostic, NamedSource, Report, SourceSpan};
 use std::iter::Peekable;
+use std::str::CharIndices;
+use thiserror::Error;
 
-pub struct Lexer<T: Iterator<Item = char>> {
-    source: Peekable<T>,
+#[derive(Error, Debug, Diagnostic)]
+#[error("unclosed string literal")]
+#[diagnostic(
+    code(lexer::unclosed_string),
+    help("add a closing `\"` to terminate the string")
+)]
+struct UnclosedString {
+    #[source_code]
+    src: NamedSource<String>,
+    #[label("string starts here and never ends")]
+    span: SourceSpan,
+}
+
+pub struct Lexer<'a> {
+    src: &'a str,
+    name: &'a str,
+    chars: Peekable<CharIndices<'a>>,
+    offset: usize,
     row: u32,
     col: u32,
 }
 
-impl<T: Iterator<Item = char>> Lexer<T> {
-    pub fn new(source: T) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(name: &'a str, src: &'a str) -> Self {
         Self {
-            source: source.peekable(),
+            src,
+            name,
+            chars: src.char_indices().peekable(),
+            offset: 0,
             row: 1,
             col: 0,
         }
+    }
+
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().map(|&(_, c)| c)
     }
 
     fn check(
@@ -24,9 +50,7 @@ impl<T: Iterator<Item = char>> Lexer<T> {
         default_kind: TokenKind,
         expected_kind: TokenKind,
     ) -> Token {
-        if let Some(c) = self.source.peek()
-            && *c == expected_char
-        {
+        if self.peek() == Some(expected_char) {
             let token = self.make_token(expected_kind);
             self.advance();
             return token;
@@ -56,6 +80,14 @@ impl<T: Iterator<Item = char>> Lexer<T> {
         token
     }
 
+    fn report_unclosed_string(&self, start: usize) {
+        let err = UnclosedString {
+            src: NamedSource::new(self.name, self.src.to_string()),
+            span: (start, self.offset - start).into(),
+        };
+        eprintln!("{:?}", Report::new(err));
+    }
+
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         if self.is_at_end() {
@@ -82,15 +114,17 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             '>' => self.check('=', TokenKind::Greater, TokenKind::GreaterEqual),
             '<' => self.check('=', TokenKind::Less, TokenKind::LessEqual),
             '"' => {
+                let start = self.offset - 1;
                 let mut str = String::new();
-                while let Some(x) = self.source.peek()
-                    && *x != '"'
+                while let Some(x) = self.peek()
+                    && x != '"'
                 {
-                    str.push(*x);
+                    str.push(x);
                     self.advance();
                 }
                 if self.is_at_end() {
-                    todo!("Use miette to report unclosed string delimeter");
+                    self.report_unclosed_string(start);
+                    std::process::exit(1);
                 }
                 self.advance();
                 let len = str.len() as u32 + 1;
@@ -102,21 +136,19 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             '0'..='9' => {
                 let mut num = String::new();
                 num.push(c);
-                while let Some(x) = self.source.peek()
+                while let Some(x) = self.peek()
                     && x.is_numeric()
                 {
-                    num.push(*x);
+                    num.push(x);
                     self.advance();
                 }
-                if let Some(x) = self.source.peek()
-                    && *x == '.'
-                {
-                    num.push(*x);
+                if self.peek() == Some('.') {
+                    num.push('.');
                     self.advance();
-                    while let Some(x) = self.source.peek()
+                    while let Some(x) = self.peek()
                         && x.is_numeric()
                     {
-                        num.push(*x);
+                        num.push(x);
                         self.advance();
                     }
                 }
@@ -129,10 +161,10 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut ident = String::new();
                 ident.push(c);
-                while let Some(x) = self.source.peek()
-                    && (x.is_alphanumeric() || *x == '_')
+                while let Some(x) = self.peek()
+                    && (x.is_alphanumeric() || x == '_')
                 {
-                    ident.push(*x);
+                    ident.push(x);
                     self.advance();
                 }
                 self.return_keyword_or_ident(ident)
@@ -143,33 +175,33 @@ impl<T: Iterator<Item = char>> Lexer<T> {
 
     fn skip_whitespace(&mut self) {
         loop {
-            if self.is_at_end() {
-                self.col += 1;
-                break;
-            }
-            let c = self.source.peek().unwrap();
-            match c {
-                ' ' | '\r' | '\t' => {
+            match self.peek() {
+                None => {
+                    self.col += 1;
+                    break;
+                }
+                Some(' ' | '\r' | '\t') => {
                     self.advance();
                 }
-                '\n' => {
+                Some('\n') => {
                     self.row += 1;
                     self.advance();
                     self.col = 0;
                 }
-                _ => break,
+                Some(_) => break,
             }
         }
     }
 
     fn advance(&mut self) -> char {
-        assert!(!self.is_at_end());
         self.col += 1;
-        self.source.next().unwrap()
+        let (i, c) = self.chars.next().expect("advance called at end of input");
+        self.offset = i + c.len_utf8();
+        c
     }
 
     fn is_at_end(&mut self) -> bool {
-        self.source.peek().is_none()
+        self.chars.peek().is_none()
     }
 
     fn make_token(&self, kind: TokenKind) -> Token {
@@ -181,9 +213,9 @@ impl<T: Iterator<Item = char>> Lexer<T> {
     }
 }
 
-impl<T: Iterator<Item = char>> Iterator for Lexer<T> {
+impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.is_at_end() {
             None
         } else {
@@ -196,183 +228,53 @@ impl<T: Iterator<Item = char>> Iterator for Lexer<T> {
 mod tests {
     use super::*;
 
+    fn tok(kind: TokenKind, row: u32, col: u32) -> Token {
+        Token {
+            kind,
+            pos: Location { row, col },
+        }
+    }
+
     #[test]
     fn single_punctuations() {
         use TokenKind::*;
-        let test_str = ";()\n{}=!+/*-.><&,[]";
-        let mut lexer = Lexer::new(test_str.chars());
-        assert_eq!(
-            Token {
-                kind: SemiColon,
-                pos: Location { col: 1, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: LParen,
-                pos: Location { col: 2, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: RParen,
-                pos: Location { col: 3, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: LBrace,
-                pos: Location { col: 1, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: RBrace,
-                pos: Location { col: 2, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Equal,
-                pos: Location { col: 3, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Bang,
-                pos: Location { col: 4, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Plus,
-                pos: Location { col: 5, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Slash,
-                pos: Location { col: 6, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Star,
-                pos: Location { col: 7, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Minus,
-                pos: Location { col: 8, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Dot,
-                pos: Location { col: 9, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Greater,
-                pos: Location { col: 10, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Less,
-                pos: Location { col: 11, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Amp,
-                pos: Location { col: 12, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Comma,
-                pos: Location { col: 13, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: LBrack,
-                pos: Location { col: 14, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: RBrack,
-                pos: Location { col: 15, row: 2 }
-            },
-            lexer.next_token()
-        );
+        let mut lexer = Lexer::new("test", ";()\n{}=!+/*-.><&,[]");
+        assert_eq!(tok(SemiColon, 1, 1), lexer.next_token());
+        assert_eq!(tok(LParen, 1, 2), lexer.next_token());
+        assert_eq!(tok(RParen, 1, 3), lexer.next_token());
+        assert_eq!(tok(LBrace, 2, 1), lexer.next_token());
+        assert_eq!(tok(RBrace, 2, 2), lexer.next_token());
+        assert_eq!(tok(Equal, 2, 3), lexer.next_token());
+        assert_eq!(tok(Bang, 2, 4), lexer.next_token());
+        assert_eq!(tok(Plus, 2, 5), lexer.next_token());
+        assert_eq!(tok(Slash, 2, 6), lexer.next_token());
+        assert_eq!(tok(Star, 2, 7), lexer.next_token());
+        assert_eq!(tok(Minus, 2, 8), lexer.next_token());
+        assert_eq!(tok(Dot, 2, 9), lexer.next_token());
+        assert_eq!(tok(Greater, 2, 10), lexer.next_token());
+        assert_eq!(tok(Less, 2, 11), lexer.next_token());
+        assert_eq!(tok(Amp, 2, 12), lexer.next_token());
+        assert_eq!(tok(Comma, 2, 13), lexer.next_token());
+        assert_eq!(tok(LBrack, 2, 14), lexer.next_token());
+        assert_eq!(tok(RBrack, 2, 15), lexer.next_token());
     }
+
     #[test]
     fn compound_punctuations() {
         use TokenKind::*;
-        let test_str = "==\n!=\n>=\n<=";
-        let mut lexer = Lexer::new(test_str.chars());
-        assert_eq!(
-            Token {
-                kind: EqualEqual,
-                pos: Location { col: 1, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: BangEqual,
-                pos: Location { col: 1, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: GreaterEqual,
-                pos: Location { col: 1, row: 3 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: LessEqual,
-                pos: Location { col: 1, row: 4 }
-            },
-            lexer.next_token()
-        );
+        let mut lexer = Lexer::new("test", "==\n!=\n>=\n<=");
+        assert_eq!(tok(EqualEqual, 1, 1), lexer.next_token());
+        assert_eq!(tok(BangEqual, 2, 1), lexer.next_token());
+        assert_eq!(tok(GreaterEqual, 3, 1), lexer.next_token());
+        assert_eq!(tok(LessEqual, 4, 1), lexer.next_token());
     }
 
     #[test]
     fn strings() {
         use TokenKind::*;
-        let test_str = "\"hello world\"";
-        let mut lexer = Lexer::new(test_str.chars());
+        let mut lexer = Lexer::new("test", "\"hello world\"");
         assert_eq!(
-            Token {
-                kind: String("hello world".to_string()),
-                pos: Location { col: 1, row: 1 }
-            },
+            tok(String("hello world".to_string()), 1, 1),
             lexer.next_token()
         );
     }
@@ -380,140 +282,37 @@ mod tests {
     #[test]
     fn numbers() {
         use TokenKind::*;
-        let test_str = "69.420\n73";
-        let mut lexer = Lexer::new(test_str.chars());
-        assert_eq!(
-            Token {
-                kind: Number("69.420".to_string()),
-                pos: Location { col: 1, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Number("73".to_string()),
-                pos: Location { col: 1, row: 2 }
-            },
-            lexer.next_token()
-        );
+        let mut lexer = Lexer::new("test", "69.420\n73");
+        assert_eq!(tok(Number("69.420".to_string()), 1, 1), lexer.next_token());
+        assert_eq!(tok(Number("73".to_string()), 2, 1), lexer.next_token());
     }
 
     #[test]
     fn idents() {
         use TokenKind::*;
-        let test_str = "ur_mom\nUrDad";
-        let mut lexer = Lexer::new(test_str.chars());
-        assert_eq!(
-            Token {
-                kind: Ident("ur_mom".to_string()),
-                pos: Location { col: 1, row: 1 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Ident("UrDad".to_string()),
-                pos: Location { col: 1, row: 2 }
-            },
-            lexer.next_token()
-        );
+        let mut lexer = Lexer::new("test", "ur_mom\nUrDad");
+        assert_eq!(tok(Ident("ur_mom".to_string()), 1, 1), lexer.next_token());
+        assert_eq!(tok(Ident("UrDad".to_string()), 2, 1), lexer.next_token());
     }
 
     #[test]
     fn keywords() {
         use TokenKind::*;
-        let test_str =
-            "class\nint\narchetype\nfloat\nfn\nvoid\nimpl\nfor\nwhile\nextends\nnew\nreturn\n";
-        let mut lexer = Lexer::new(test_str.chars());
-        assert_eq!(
-            Token {
-                kind: Class,
-                pos: Location { col: 1, row: 1 }
-            },
-            lexer.next_token()
+        let mut lexer = Lexer::new(
+            "test",
+            "class\nint\narchetype\nfloat\nfn\nvoid\nimpl\nfor\nwhile\nextends\nnew\nreturn\n",
         );
-        assert_eq!(
-            Token {
-                kind: IntT,
-                pos: Location { col: 1, row: 2 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Archetype,
-                pos: Location { col: 1, row: 3 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: FloatT,
-                pos: Location { col: 1, row: 4 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: Fn,
-                pos: Location { col: 1, row: 5 }
-            },
-            lexer.next_token()
-        );
-        assert_eq!(
-            Token {
-                kind: VoidT,
-                pos: Location { col: 1, row: 6 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: Impl,
-                pos: Location { col: 1, row: 7 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: For,
-                pos: Location { col: 1, row: 8 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: While,
-                pos: Location { col: 1, row: 9 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: Extends,
-                pos: Location { col: 1, row: 10 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: New,
-                pos: Location { col: 1, row: 11 }
-            },
-            lexer.next_token()
-        );
-
-        assert_eq!(
-            Token {
-                kind: Return,
-                pos: Location { col: 1, row: 12 }
-            },
-            lexer.next_token()
-        );
+        assert_eq!(tok(Class, 1, 1), lexer.next_token());
+        assert_eq!(tok(IntT, 2, 1), lexer.next_token());
+        assert_eq!(tok(Archetype, 3, 1), lexer.next_token());
+        assert_eq!(tok(FloatT, 4, 1), lexer.next_token());
+        assert_eq!(tok(Fn, 5, 1), lexer.next_token());
+        assert_eq!(tok(VoidT, 6, 1), lexer.next_token());
+        assert_eq!(tok(Impl, 7, 1), lexer.next_token());
+        assert_eq!(tok(For, 8, 1), lexer.next_token());
+        assert_eq!(tok(While, 9, 1), lexer.next_token());
+        assert_eq!(tok(Extends, 10, 1), lexer.next_token());
+        assert_eq!(tok(New, 11, 1), lexer.next_token());
+        assert_eq!(tok(Return, 12, 1), lexer.next_token());
     }
 }
