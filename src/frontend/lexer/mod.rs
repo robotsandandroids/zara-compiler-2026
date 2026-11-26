@@ -10,7 +10,7 @@ pub struct Lexer<T: Iterator<Item = char>> {
 }
 
 impl<T: Iterator<Item = char>> Lexer<T> {
-    fn new(source: T) -> Self {
+    pub fn new(source: T) -> Self {
         Self {
             source: source.peekable(),
             row: 1,
@@ -177,6 +177,17 @@ impl<T: Iterator<Item = char>> Lexer<T> {
             col: self.col,
         };
         Token { kind, pos }
+    }
+}
+
+impl<T: Iterator<Item = char>> Iterator for Lexer<T> {
+    type Item = Token;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        if self.is_at_end() {
+            None
+        } else {
+            Some(self.next_token())
+        }
     }
 }
 
