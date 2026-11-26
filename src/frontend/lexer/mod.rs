@@ -34,6 +34,27 @@ impl<T: Iterator<Item = char>> Lexer<T> {
         self.make_token(default_kind)
     }
 
+    fn return_keyword_or_ident(&mut self, ident: String) -> Token {
+        let len = ident.len() as u32 - 1;
+        self.col -= len;
+        let token = match ident.as_str() {
+            "archetype" => self.make_token(TokenKind::Archetype),
+            "class" => self.make_token(TokenKind::Class),
+            "extends" => self.make_token(TokenKind::Extends),
+            "fn" => self.make_token(TokenKind::Fn),
+            "for" => self.make_token(TokenKind::For),
+            "float" => self.make_token(TokenKind::FloatT),
+            "int" => self.make_token(TokenKind::IntT),
+            "impl" => self.make_token(TokenKind::Impl),
+            "new" => self.make_token(TokenKind::New),
+            "void" => self.make_token(TokenKind::VoidT),
+            "while" => self.make_token(TokenKind::While),
+            _ =>  self.make_token(TokenKind::Ident(ident)),
+        };
+        self.col += len;
+        return token;
+    }
+
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         if self.is_at_end() {
@@ -103,6 +124,17 @@ impl<T: Iterator<Item = char>> Lexer<T> {
                 let token = self.make_token(TokenKind::Number(num));
                 self.col += len;
                 token
+            }
+            'a'..='z' | 'A'..='Z' | '_' => {
+                let mut ident = String::new();
+                ident.push(c);
+                while let Some(x) = self.source.peek()
+                    && (x.is_alphanumeric() || *x == '_')
+                {
+                    ident.push(*x);
+                    self.advance();
+                }
+                self.return_keyword_or_ident(ident)
             }
             _ => self.make_token(TokenKind::Illegal(c)),
         }
@@ -349,6 +381,116 @@ mod tests {
             Token {
                 kind: Number("73".to_string()),
                 pos: Location { col: 1, row: 2 }
+            },
+            lexer.next_token()
+        );
+    }
+
+    #[test]
+    fn idents() {
+        use TokenKind::*;
+        let test_str = "ur_mom\nUrDad";
+        let mut lexer = Lexer::new(test_str.chars());
+        assert_eq!(
+            Token {
+                kind: Ident("ur_mom".to_string()),
+                pos: Location { col: 1, row: 1 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Ident("UrDad".to_string()),
+                pos: Location { col: 1, row: 2 }
+            },
+            lexer.next_token()
+        );
+    }
+
+    #[test]
+    fn keywords() {
+        use TokenKind::*;
+        let test_str = "class\nint\narchetype\nfloat\nfn\nvoid\nimpl\nfor\nwhile\nextends\nnew\n";
+        let mut lexer = Lexer::new(test_str.chars());
+        assert_eq!(
+            Token {
+                kind: Class,
+                pos: Location { col: 1, row: 1 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: IntT,
+                pos: Location { col: 1, row: 2 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Archetype,
+                pos: Location { col: 1, row: 3 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: FloatT,
+                pos: Location { col: 1, row: 4 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: Fn,
+                pos: Location { col: 1, row: 5 }
+            },
+            lexer.next_token()
+        );
+        assert_eq!(
+            Token {
+                kind: VoidT,
+                pos: Location { col: 1, row: 6 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: Impl,
+                pos: Location { col: 1, row: 7 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: For,
+                pos: Location { col: 1, row: 8 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: While,
+                pos: Location { col: 1, row: 9 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: Extends,
+                pos: Location { col: 1, row: 10 }
+            },
+            lexer.next_token()
+        );
+
+        assert_eq!(
+            Token {
+                kind: New,
+                pos: Location { col: 1, row: 11 }
             },
             lexer.next_token()
         );
