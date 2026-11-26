@@ -7,16 +7,18 @@ use std::str::CharIndices;
 use thiserror::Error;
 
 #[derive(Error, Debug, Diagnostic)]
-#[error("unclosed string literal")]
-#[diagnostic(
-    code(lexer::unclosed_string),
-    help("add a closing `\"` to terminate the string")
-)]
-struct UnclosedString {
-    #[source_code]
-    src: NamedSource<String>,
-    #[label("string starts here and never ends")]
-    span: SourceSpan,
+enum LexError {
+    #[error("unclosed string literal")]
+    #[diagnostic(
+        code(lexer::unclosed_string),
+        help("add a closing `\"` to terminate the string")
+    )]
+    UnclosedString {
+        #[source_code]
+        src: NamedSource<String>,
+        #[label("string starts here and never ends")]
+        span: SourceSpan,
+    },
 }
 
 pub struct Lexer<'a> {
@@ -80,12 +82,13 @@ impl<'a> Lexer<'a> {
         token
     }
 
-    fn report_unclosed_string(&self, start: usize) {
-        let err = UnclosedString {
-            src: NamedSource::new(self.name, self.src.to_string()),
-            span: (start, self.offset - start).into(),
-        };
+    fn report(&self, err: LexError) {
         eprintln!("{:?}", Report::new(err));
+        std::process::exit(1);
+    }
+
+    fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.name, self.src.to_string())
     }
 
     fn next_token(&mut self) -> Token {
@@ -123,8 +126,10 @@ impl<'a> Lexer<'a> {
                     self.advance();
                 }
                 if self.is_at_end() {
-                    self.report_unclosed_string(start);
-                    std::process::exit(1);
+                    self.report(LexError::UnclosedString {
+                        src: self.named_source(),
+                        span: (start, self.offset - start).into(),
+                    });
                 }
                 self.advance();
                 let len = str.len() as u32 + 1;
