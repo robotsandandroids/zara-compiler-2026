@@ -20,8 +20,13 @@ cargo build
 The compiler can process `.zara` files. Example files are available in the `examples/` directory:
 
 ```bash
-cargo run -- example/hello_world.zara
+cargo run -- examples/hello_world.zara
 ```
+
+### Language grammar
+
+Sample grammars for the syntax used by the examples are available in
+[`examples/zara.bnf`](examples/zara.bnf) and [`examples/zara.ebnf`](examples/zara.ebnf).
 
 ### Running tests
 
