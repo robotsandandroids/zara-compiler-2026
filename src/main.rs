@@ -59,7 +59,8 @@ fn main() -> ExitCode {
                 "===========Lexical Analysis({})==============",
                 file_path.display()
             );
-            let lexer = Lexer::new(file.chars());
+            let name = file_path.display().to_string();
+            let lexer = Lexer::new(&name, &file);
             for token in lexer {
                 println!("{:?}", token);
             }
