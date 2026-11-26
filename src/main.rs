@@ -1,6 +1,7 @@
 mod frontend;
 use clap::Parser;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 /// Zara Compiler
 #[derive(Parser, Debug)]
@@ -17,6 +18,13 @@ struct Args {
     zen: bool,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
+    if args.zen {
+        println!("Zen Of Zara");
+        println!("- If dogma doesn't guide us, what will?");
+        println!("- S2l0dWt1IFN1Y2tz");
+        return ExitCode::SUCCESS;
+    }
+    ExitCode::SUCCESS
 }
